@@ -152,6 +152,7 @@
   .menu button { display: block; width: 100%; text-align: left; padding: 14px 4px; border-bottom: 1px solid var(--line); font-size: 17px; }
   .menu button:last-child { border-bottom: 0; }
   .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 28px; }
+  .foot a { color: var(--muted); }
   .hidden { display: none !important; }
 </style>
 </head>
@@ -222,6 +223,9 @@
   }
   const getItem = (id) => data.items.find(i => i.id === id);
   const lastEntry = (it) => it.entries.length ? it.entries[it.entries.length - 1] : null;
+  // Läuft die Seite als installierte Android-APK (Capacitor)?
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const APK_URL = 'https://github.com/Koebims/trainingstracker/releases/latest/download/trainingstracker.apk';
   const vibrate = () => { try { navigator.vibrate && navigator.vibrate(10); } catch (e) {} };
 
   // ---------- Navigation ----------
@@ -272,7 +276,8 @@
         <span class="info"><div class="name">${esc(it.name)}</div><div class="sub">${sub}</div></span>
         <span class="val">${val}</span>
       </button>`;
-    }).join('') + '</div><div class="foot">Alle Daten bleiben nur auf diesem Gerät.<br>Backup über ⋯ oben rechts.</div>';
+    }).join('') + '</div><div class="foot">Alle Daten bleiben nur auf diesem Gerät.<br>Backup über ⋯ oben rechts.'
+      + (isNative ? '' : `<br><a href="${APK_URL}">Android-App (APK) herunterladen</a>`) + '</div>';
     $('#view').querySelectorAll('.item').forEach(b => b.onclick = () => go(b.dataset.id));
   }
 
@@ -513,6 +518,18 @@
       root.querySelector('#ex').onclick = async () => {
         const json = JSON.stringify(data, null, 2);
         const name = 'training-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+        if (isNative) {
+          // In der APK: Datei im App-Cache ablegen und über das Android-Teilen-Menü weitergeben
+          try {
+            const cap = window.Capacitor;
+            const { uri } = await cap.nativePromise('Filesystem', 'writeFile', { path: name, data: json, directory: 'CACHE', encoding: 'utf8' });
+            await cap.nativePromise('Share', 'share', { title: name, files: [uri] });
+            closeSheet();
+          } catch (e) {
+            if (!/cancel/i.test(e.message || '')) alert('Export fehlgeschlagen: ' + e.message);
+          }
+          return;
+        }
         const file = new File([json], name, { type: 'application/json' });
         try {
           if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); closeSheet(); return; }
@@ -543,7 +560,7 @@
 
   render();
 
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if (!isNative && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
 </script>
 </body>

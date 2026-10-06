@@ -26,3 +26,21 @@ Die Daten liegen im Speicher des Browsers auf dem Gerät. Sie gehen verloren, we
 ## Technik
 
 Eine einzige `index.html` (HTML/CSS/JS ohne Abhängigkeiten), `manifest.webmanifest`, `sw.js` und Icons. Kein Build-Schritt. Bei Änderungen in `sw.js` die Cache-Version (`training-v1`) hochzählen, damit das Handy die neue Version lädt.
+
+## Android-App (APK)
+
+Statt der Web-App kann man auch eine echte APK installieren. Die Daten liegen dann im Speicher der App und hängen nicht mehr an Chrome („Browserdaten löschen“ betrifft sie nicht). Beim Deinstallieren sind sie aber weg – Backup also trotzdem ab und zu exportieren.
+
+- **Download:** https://github.com/Koebims/trainingstracker/releases/latest/download/trainingstracker.apk (auch klein unten in der Web-App verlinkt)
+- Beim ersten Installieren fragt Android, ob Chrome „unbekannte Apps installieren“ darf → erlauben.
+- Die APK wird bei jeder Änderung auf `main` automatisch per GitHub Actions gebaut (`.github/workflows/apk.yml`) und unter Releases → „apk“ ersetzt.
+
+**Updates:** Jede APK wird mit einem neuen Debug-Schlüssel signiert. Eine neue Version lässt sich deshalb nicht direkt über die alte installieren. Ablauf: ⋯ → Backup exportieren → alte App deinstallieren → neue APK installieren → ⋯ → Backup importieren.
+
+### Lokal bauen
+
+```bash
+npm install
+npm run android:sync      # Web-Dateien nach android/ kopieren
+cd android && ./gradlew assembleRelease
+```

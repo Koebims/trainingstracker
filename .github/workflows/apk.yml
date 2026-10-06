@@ -1,0 +1,53 @@
+name: Android-APK bauen
+
+# Baut bei jeder Änderung auf main eine neue APK und legt sie unter
+# Releases → "apk" ab. Die Web-App verlinkt immer auf die neueste Datei.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Web-App in Android-Projekt übernehmen
+        run: |
+          npm ci
+          npm run build
+          npx cap sync android
+
+      - name: APK bauen
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease -PversionCode=${{ github.run_number }} --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/trainingstracker.apk"
+
+      - name: APK als Release veröffentlichen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view apk >/dev/null 2>&1 || \
+            gh release create apk --title "Android-App" --latest \
+              --notes "Neueste APK der Trainings-App. Auf dem Handy herunterladen und installieren."
+          gh release upload apk "$RUNNER_TEMP/trainingstracker.apk" --clobber
