@@ -505,39 +505,88 @@
     });
   }
 
+  // Datei teilen (Android-Teilen-Menü / Web Share) oder als Download speichern.
+  // Gibt false zurück, wenn der Nutzer abgebrochen hat.
+  async function shareFile(name, content, mime) {
+    if (isNative) {
+      // In der APK: Datei im App-Cache ablegen und über das Android-Teilen-Menü weitergeben
+      try {
+        const cap = window.Capacitor;
+        const { uri } = await cap.nativePromise('Filesystem', 'writeFile', { path: name, data: content, directory: 'CACHE', encoding: 'utf8' });
+        await cap.nativePromise('Share', 'share', { title: name, files: [uri] });
+        return true;
+      } catch (e) {
+        if (!/cancel/i.test(e.message || '')) alert('Export fehlgeschlagen: ' + e.message);
+        return false;
+      }
+    }
+    const file = new File([content], name, { type: mime });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return true; }
+    } catch (e) { if (e.name === 'AbortError') return false; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(file); a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    return true;
+  }
+
+  // Einträge der letzten 30 Tage als CSV – gut lesbar für Claude & andere Assistenten
+  const isoDay = (ts) => { const d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  function last30Csv() {
+    const since = new Date(); since.setHours(0, 0, 0, 0); since.setDate(since.getDate() - 29);
+    const q = (v) => /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+    const rows = [];
+    data.items.forEach(it => it.entries.forEach(e => {
+      if (e.ts >= since.getTime()) rows.push({ ts: e.ts, it, e });
+    }));
+    rows.sort((a, b) => a.ts - b.ts);
+    const lines = ['datum,uhrzeit,uebung,art,kg,wiederholungen,notiz'];
+    rows.forEach(({ ts, it, e }) => lines.push([
+      isoDay(ts), fmtTime(ts), q(it.name), it.type === 'body' ? 'koerperwert' : 'uebung',
+      String(e.kg), e.reps ? String(e.reps) : '', q(e.note || '')
+    ].join(',')));
+    return { csv: lines.join('\n') + '\n', count: rows.length, from: isoDay(since.getTime()), to: isoDay(Date.now()) };
+  }
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (e) {}
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy'); ta.remove();
+    return ok;
+  }
+
   function mainMenu() {
     const total = data.items.reduce((s, i) => s + i.entries.length, 0);
     openSheet(`
       <h2>Daten</h2>
       <p class="hint">${data.items.length} Übungen · ${total} Einträge · nur auf diesem Gerät gespeichert</p>
       <div class="menu">
+        <button id="ai">Letzte 30 Tage für Claude (.csv)</button>
+        <button id="aic">Letzte 30 Tage als Text kopieren</button>
         <button id="ex">Backup exportieren (.json)</button>
         <button id="im">Backup importieren</button>
       </div>
     `, (root) => {
+      root.querySelector('#ai').onclick = async () => {
+        const { csv, count, to } = last30Csv();
+        if (!count) { alert('In den letzten 30 Tagen gibt es keine Einträge.'); return; }
+        if (await shareFile('training-30-tage-' + to + '.csv', csv, 'text/csv')) closeSheet();
+      };
+      root.querySelector('#aic').onclick = async () => {
+        const { csv, count, from, to } = last30Csv();
+        if (!count) { alert('In den letzten 30 Tagen gibt es keine Einträge.'); return; }
+        const text = `Hier sind meine Trainingsdaten vom ${from} bis ${to} (Gewichte in kg, Körperwerte = z. B. Körpergewicht). ` +
+          `Bitte analysiere meinen Fortschritt und gib mir Tipps.\n\n\`\`\`csv\n${csv}\`\`\`\n`;
+        if (await copyText(text)) {
+          const b = root.querySelector('#aic');
+          b.textContent = '✓ Kopiert – jetzt in Claude einfügen';
+          setTimeout(() => closeSheet(), 1200);
+        } else alert('Kopieren hat nicht geklappt.');
+      };
       root.querySelector('#ex').onclick = async () => {
-        const json = JSON.stringify(data, null, 2);
-        const name = 'training-backup-' + new Date().toISOString().slice(0, 10) + '.json';
-        if (isNative) {
-          // In der APK: Datei im App-Cache ablegen und über das Android-Teilen-Menü weitergeben
-          try {
-            const cap = window.Capacitor;
-            const { uri } = await cap.nativePromise('Filesystem', 'writeFile', { path: name, data: json, directory: 'CACHE', encoding: 'utf8' });
-            await cap.nativePromise('Share', 'share', { title: name, files: [uri] });
-            closeSheet();
-          } catch (e) {
-            if (!/cancel/i.test(e.message || '')) alert('Export fehlgeschlagen: ' + e.message);
-          }
-          return;
-        }
-        const file = new File([json], name, { type: 'application/json' });
-        try {
-          if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); closeSheet(); return; }
-        } catch (e) { if (e.name === 'AbortError') return; }
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(file); a.download = name; a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-        closeSheet();
+        const name = 'training-backup-' + isoDay(Date.now()) + '.json';
+        if (await shareFile(name, JSON.stringify(data, null, 2), 'application/json')) closeSheet();
       };
       root.querySelector('#im').onclick = () => $('#importFile').click();
     });

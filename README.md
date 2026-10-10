@@ -10,6 +10,7 @@ Mini-App zum Tracken von Gym-Fortschritt und Körpergewicht. Läuft im Browser, 
 - Einträge erscheinen untereinander, nach Tagen gruppiert (neuester Tag oben), mit Verlaufskurve, letztem Wert und Bestwert.
 - Eintrag antippen → bearbeiten oder löschen. ⋯ oben rechts → Übung umbenennen/löschen bzw. Backup exportieren/importieren.
 - Funktioniert offline (Service Worker), Dark Mode automatisch.
+- **Für Claude/KI-Assistenten:** ⋯ → „Letzte 30 Tage für Claude (.csv)“ teilt eine CSV-Datei (z. B. direkt in die Claude-App), „Letzte 30 Tage als Text kopieren“ kopiert die Daten samt kurzer Frage zum Einfügen in den Chat.
 
 ## Aufs Handy bringen
 
