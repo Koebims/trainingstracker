@@ -5,6 +5,8 @@ Mini-App zum Tracken von Gym-Fortschritt und Körpergewicht. Läuft im Browser, 
 ## Funktionen
 
 - **+** auf der Startseite → neue Übung/Maschine (oder einen Körperwert wie „Körpergewicht“) anlegen. Sie bleibt dauerhaft in der Liste.
+- **Bild pro Übung (optional):** beim Anlegen aus 24 Piktogrammen (Beinpresse, Latzug, Bankdrücken, …) wählen oder ein eigenes Foto der Maschine machen. Beim Tippen des Namens wird ein passendes Bild vorgeschlagen. Später änderbar über ⋯ → „Bild ändern“.
+- **Suche** auf der Startseite: filtert die Liste nach Namen (Groß-/Kleinschreibung und Umlaute egal). Kein Treffer → direkt neu anlegen.
 - Übung antippen → **+ Satz**: Kilo per Slider oder ±-Buttons wählen, Wiederholungen, optional Notiz. Datum und Uhrzeit werden automatisch gespeichert.
 - „Eintragen & nächster Satz“ hält das Fenster offen, damit man mehrere Sätze hintereinander loggen kann.
 - Einträge erscheinen untereinander, nach Tagen gruppiert (neuester Tag oben), mit Verlaufskurve, letztem Wert und Bestwert.
